@@ -1,23 +1,39 @@
+using Amazon;
+using Amazon.SimpleNotificationService;
+using BankingService.Configuration;
+using BankingService.Messaging;
+using BankingService.Repositories;
+using BankingService.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Bind typed configuration
+builder.Services.Configure<SnsConfiguration>(
+    builder.Configuration.GetSection("Sns"));
+
+// Register AWS SNS client as singleton — one instance, reused across requests
+builder.Services.AddSingleton<IAmazonSimpleNotificationService>(_ =>
+    new AmazonSimpleNotificationServiceClient(
+        RegionEndpoint.GetBySystemName(
+            builder.Configuration["Sns:Region"])));
+
+// Register application services as scoped — one instance per HTTP request
+builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+builder.Services.AddScoped<IEventPublisher, SnsEventPublisher>();
+builder.Services.AddScoped<IWithdrawalService, WithdrawalService>();
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    //app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
